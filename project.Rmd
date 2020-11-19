@@ -210,7 +210,7 @@ model %>%
 ### Question: What impact do pool size and flux have on the system? Change the flux rates and reservoir sizes in params and see what happens.
 Answer: 
 
-### Question: In the grand scheme of things, does comparing high flux with low flux really matter? 
+### Question: What does this comparison between high flux and low flux tell you? 
 Answer: 
 
 
