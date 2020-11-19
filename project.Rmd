@@ -39,7 +39,7 @@ knitr::include_graphics("Schematic.png")
 ```
 
 ### Question: The methanol pathway has both anabolic and catabolic components. The anabolic component results in the formation of lipids and bulk biomass and the catabolic component produces methane. Looking at these pathways in the schematic, what factors would impact the isotopic difference between the substrate (methanol) and products (total biomass and methane)?
-Answer: The relative fluxes of carbon to various products at any branch point, the fractionations imposed by each enzyme, and the reversibility of each of the enzymes are all important factors in determining the isotopic difference between substrate and any particular product.
+Answer: 
 
 
 # Methanol Schematic
@@ -52,7 +52,7 @@ knitr::include_graphics("Hayes 2001.png")
 
 ## Creating the schematic and generating a reaction diagram
 
-The code chunk below creates a reaction diagram for our pathway using the amazing custom super exclusive package isocyclr! 
+The code chunk below creates a reaction diagram for our pathway using the amazing custom super cool package isocyclr! 
 
 ```{r, fig.width=10}
 methanogen <- isopath() %>%
@@ -77,8 +77,8 @@ methanogen <- isopath() %>%
   add_custom_reaction(
     meS + CO2 == actCoA, 
     flux = (1 - f_CH4 - f_CO2) * net, 
-    flux.meS.d13C = meS.d13C + eps_actCoA, 
-    flux.actCoA.d13C = 1/2 * (meS.d13C + eps_actCoA) + 1/2 * (CO2.d13C + 0),
+    flux.meS.d13C = meS.d13C + eps_actCoA, # flux out
+    flux.actCoA.d13C = 1/2 * (meS.d13C + eps_actCoA) + 1/2 * (CO2.d13C + 0), # flux in
     name = "4. acetyl CoA generation", abscissa = 4
   ) %>%
   # methane outflux
@@ -91,8 +91,8 @@ methanogen <- isopath() %>%
   add_custom_reaction(
     actCoA + CO2 == obio, 
     flux = (1 - f_lipid) * (1 - f_CH4 - f_CO2) * net, 
-    flux.actCoA.d13C = actCoA.d13C + eps_obio,
-    flux.obio.d13C = 2/3 * (meS.d13C + eps_actCoA) + 1/3 * (CO2.d13C + 0),
+    flux.actCoA.d13C = actCoA.d13C + eps_obio, # flux out
+    flux.obio.d13C = 2/3 * (meS.d13C + eps_actCoA) + 1/3 * (CO2.d13C + 0), #flux in
     name = "5. other biomass generation",
     abscissa = 5
   ) %>%
@@ -135,34 +135,35 @@ Here are some useful and relevant equations we've learned this semester. Please 
 $$
 \alpha = \text{fractionation factor} \\
 R = \text{isotope ratio} \\
-\alpha_{\frac{p/r}} = \frac{R_p}{R_r} = \frac{\delta^{13}C_p + 1000}{\delta^{13}C_r + 1000} \\
+\alpha_{\frac{p/r}} = \frac{R_p}{R_r} = \frac{\delta^{13}C_p + 1}{\delta^{13}C_r + 1} \\
 \epsilon = \alpha_{\frac{p/r}} - 1 \\
 $$
 
-### Equate and define 
+### Equate and define
+
 ```{r}
 
 d13C_MeOH <- -0.0462
-d13C_obio <- -0.0773
+d13C_obio <- -0.0673
 d13C_CH4 <- -0.1296
 d13C_lipid <- -0.0897
-d13C_actCoA <- -0.1 # random value
+d13C_actCoA <- -0.1 
 
-alpha_CH4 <- (d13C_CH4 + 1) / (d13C_MeOH + 1)  
-eps_CH4 <-  alpha_CH4 - 1
+alpha_CH4 <- 
+eps_CH4 <-  
 
-alpha_actCoA  <- (d13C_actCoA + 1) / (d13C_MeOH + 1)
-eps_actCoA <- alpha_actCoA - 1
+alpha_actCoA  <- 
+eps_actCoA <- 
 
-alpha_obio  <- (d13C_obio + 1) / (d13C_actCoA + 1)
-eps_obio <- alpha_obio - 1
+alpha_obio  <- 
+eps_obio <- 
 
-alpha_lipid <- (d13C_lipid + 1) / (d13C_actCoA + 1) 
-eps_lipid <- alpha_lipid - 1
+alpha_lipid <- 
+eps_lipid <- 
 
 ```
 
-The variables defined above are now going to be used to assign numeric values to the "symbols" used in the reaction network created earlier.
+The variables defined above are now going to be used to assign numeric values to the variables used in the reaction network created earlier.
 
 ```{r}
 params <- tibble(
@@ -174,13 +175,13 @@ params <- tibble(
       # starting isotopic composition in permil
       MeOH.d13C = -46.2, meS.d13C = 0, CO2.d13C = -8, CH4.d13C = 0, actCoA.d13C = 0, lipids.d13C = 0, obio.d13C = 0, #CO2 = compressed gas so atmospheric value
       # pool sizes for variable components
-      meS = 40, CO2 = 10, CH4 = 10, actCoA = 40, lipids = 10, obio = 10
+      meS = 10, CO2 = 10, CH4 = 10, actCoA = 10, lipids = 10, obio = 10
       )
 params
 ```
 
 ### Question: Looking  at the schematic and paramaters assigned, which fractionation factor did we not take into account? Where would the incorporation of this factor have an effect?
-Answer: eps_CO2, it would have made the model even more complicated. It would effect acetyl-CoA and obio d13C values.
+Answer: 
 
 ## Set paramaters for the iso path
 
@@ -207,13 +208,14 @@ model %>%
 ```
 
 ### Question: What impact do pool size and flux have on the system? Change the flux rates and reservoir sizes in params and see what happens.
-Answer: Pool size and flux only matter for residence times. By definition, the residence time is the total amount in the reservoir, divided by the total flux (in or out). Average length of time something will remain in a reservoir. Input increases, residence time decreases, input decreases, residence time increases. Larger reservoirs need more flux to reach steady-state faster.
+Answer: 
 
 ### Question: In the grand scheme of things, does comparing high flux with low flux really matter? 
-Answer: Nah, the system is gonna reach steady-state eventually.
+Answer: 
 
 
-# Model check to make sure everything is correct
+# Model check to make sure everything is correct (reservoir size should remain constant)
+
 ```{r}
 model %>% 
   pivot_longer(names_to = "reservoir", values_to = "size", cols = c(meS, CH4, lipids, CO2, obio, actCoA)) %>%
@@ -241,7 +243,7 @@ path_methanogen %>% generate_reaction_diagram(
 ```
 
 ### Question: What difference can you spot between high flux and low flux once steady state is reached?
-Answer: TRICK QUESTION. No difference.
+Answer: 
 
 
 ## Let's see how changing the branching flux at nodes effects the outcomes...
@@ -263,5 +265,8 @@ path_methanogen %>% generate_reaction_diagram(
 ```
 
 ### Question: How does the change in biomass yield effect the outcome?
-Answer: Change in biomass yield moves the methane, other biomass, and lipids up, making them isotopically heavier. So changing the overall flux rate of the system doesn't impact fractionation of intermediates or products. However, changing the branching flux at specific nodes impacts the fractionation of the compounds that are connected to that node.
+Answer: 
+
+### Question: How does changing the fractionation factor values affect the outcomes (time course and steady state diagram)? Go wild with the values and see what you get! Come up with at least one new scenario to share with the class.
+Answer:  
 
