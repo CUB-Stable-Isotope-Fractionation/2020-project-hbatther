@@ -43,14 +43,8 @@ We are going to start off by creating a reaction network of carbon based upon th
 knitr::include_graphics("Hayes 2001.png")
 ```
 
-General relationships:
 
-$$
-\text{Transmission of isotopic composition from reactant to product}: \ \delta_p = \delta_R - \epsilon \\
-\text{Mass balance for total carbon:} \ \phi_2 = \phi_3 + \phi_4 \\ 
-$$
-
-## Task 1: Please add the relevant fluxes to the schematic below and generate a reaction diagram.
+## Creating the schematic and generating a reaction diagram
 
 
 ```{r, fig.width=10}
@@ -75,7 +69,9 @@ methanogen <- isopath() %>%
   # biomass generation
   add_custom_reaction(
     meS + CO2 == actCoA, 
-    flux = 2 * (1 - f_CH4 - f_CO2) * net, flux.d13C = meS.d13C + eps_actCoA, 
+    flux = (1 - f_CH4 - f_CO2) * net, 
+    flux.meS.d13C = meS.d13C + eps_actCoA, 
+    flux.actCoA.d13C = 1/2 * (meS.d13C + eps_actCoA) + 1/2 * (CO2.d13C + 0),
     name = "4. acetyl CoA generation", abscissa = 4
   ) %>%
   # methane outflux
@@ -86,15 +82,18 @@ methanogen <- isopath() %>%
   ) %>%
   # other biomass
   add_custom_reaction(
-    2 * actCoA + 1 * CO2 == obio, # why 2 * actCoA?
-    flux = (3/2) * (1 - (f_lipid  * 2 * (1 - f_CH4 - f_CO2))), flux.d13C = actCoA.d13C + eps_obio,
+    actCoA + CO2 == obio, 
+    flux = (1 - f_lipid) * (1 - f_CH4 - f_CO2), 
+    flux.actCoA.d13C = actCoA.d13C + eps_obio,
+    flux.obio.d13C = 2/3 * (meS.d13C + eps_actCoA) + 1/3 * (CO2.d13C + 0),
     name = "5. other biomass generation",
     abscissa = 5
   ) %>%
   # lipids
   add_custom_reaction(
     actCoA == lipids,
-    flux = f_lipid  * 2 * (1 - f_CH4 - f_CO2), flux.d13C = actCoA.d13C + eps_lipid,
+    flux = f_lipid  * (1 - f_CH4 - f_CO2), 
+    flux.d13C = actCoA.d13C + eps_lipid,
     name = "6. lipid generation",
     abscissa = 5
   ) 
@@ -106,22 +105,55 @@ methanogen%>%generate_reaction_diagram(add_arrows = TRUE)
 ## System of differential equations
 
 ```{r}
-path %>% get_ode_matrix() %>% knitr::kable()
+methanogen %>% get_ode_matrix() %>% knitr::kable()
 ```
 
 ## Assign parameters
+
+$$
+\alpha = \text{fractionation factor} \\
+R = \text{isotope ratio} \\
+\alpha_{\frac{p/r}} = \frac{R_p}{R_r} = \frac{\delta^{13}C_p + 1000}{\delta^{13}C_r + 1000} \\
+\epsilon = \alpha_{\frac{p/r}} - 1 \\
+$$
+
+Define 
+```{r}
+
+d13C_MeOH <- -0.0462
+d13C_obio <- -0.0773
+d13C_CH4 <- -0.1296
+d13C_lipid <- -0.0897
+d13C_actCoA <- -0.1 #random value
+
+alpha_CH4 <- (d13C_CH4 + 1) / (d13C_MeOH + 1)  
+eps_CH4 <-  alpha_CH4 - 1
+
+alpha_actCoA  <- (d13C_actCoA + 1) / (d13C_MeOH + 1)
+eps_actCoA <- alpha_actCoA - 1
+
+alpha_obio  <- (d13C_obio + 1) / (d13C_actCoA + 1)
+eps_obio <- alpha_obio - 1
+
+alpha_lipid <- (d13C_lipid + 1) / (d13C_actCoA + 1) 
+eps_lipid <- alpha_lipid - 1
+
+
+
+```
+
 
 ```{r}
 params <- tibble(
       scenario = c("low flux", "high flux"),
       # fluxes and flux fractions
-      dm = c(0.1, 1), f2 = 0.2, f4 = 0.2,
-      # isotopic effects
-      e1 = 0, e2 = 80, e3 = 10, e4 = 10, e5 = 5, e6 = 5, e7 = 15, e8 = 5,
-      # starting isotopic composition
-      AA.carbon = -.0462, B.carbon = 0, C.carbon = 0, D.carbon = 0, E.carbon = 0, F.carbon = 0,
+      net = c(0.1, 1), f_CH4 = .1, f_CO2 = .8, f_lipid = .1,
+      # isotopic effects in permil
+      eps_CH4 = eps_CH4 * 1000, eps_actCoA = eps_actCoA * 1000, eps_obio = eps_obio * 1000, eps_lipid = eps_lipid * 1000, 
+      # starting isotopic composition in permil
+      MeOH.d13C = -46.2, meS.d13C = 0, CO2.d13C = -8, CH4.d13C = 0, actCoA.d13C = 0, lipids.d13C = 0, obio.d13C = 0, #CO2 = compressed gas
       # pool sizes for variable components
-      B = 10, C = 5, D = 20, E = 10, F = 5
+      meS = 10, CO2 = 10, CH4 = 10, actCoA = 10, lipids = 10, obio = 10
       )
 params
 ```
@@ -129,55 +161,36 @@ params
 ## Set paramaters for the iso path
 
 ```{r}
-path <- path %>% set_parameters(params)
+path_methanogen <- methanogen %>% set_parameters(params)
 ```
 
 ## Run model
 
-```{r, warning=FALSE}
-model <- path %>% run_model(time_steps = 500)
+```{r}
+model <- path_methanogen %>% run_model(time_steps = 2)
 ```
+
+
+```{r}
+
+```
+
 
 ## Plot time course
 
 ```{r time_course, fig.width = 8, fig.height = 6}
 model %>% 
-  pivot_longer(names_to = "reservoir", values_to = "delta", ends_with("carbon")) %>%
+  pivot_longer(names_to = "reservoir", values_to = "delta", ends_with("d13C")) %>%
   ggplot() + aes(time, delta, color = reservoir, size = ) +
   geom_line() + theme_bw() +
   labs(y = expression(delta*13*'C')) +
   facet_grid(~scenario)
 ```
 
-## Task 2: Increase flow to the anabolic pathway.
 
-##Question 2 
-How does a higher flow to the anabolic pathway of the schematic effect the d13C values of methane, biomass, and lipids? 
-### Answer: 
-
-
-# Differences between 13C of methanol and M. barkeri products
-
-In the Londry et al., 2008 paper, it was determined that abundant methanol produces large differences in fractionation from substrate to lipids, biomass, and methane. 
-
-Calculate the differences in isotope fractiontion between lipids, biomass, and methane using the following carbon fractionation equation: 
-$$
-\Delta\delta^{13}C = \delta^{13}C_{substrate} - \delta^{13}C_{product}  
-$$
-```{r}
-d_d13c_biomass <-
-  
-d_d13c_lipids <-
-  
-d_d13c_ch4 <- 
-```
-
-## Question 3: Which product of M. barkeri has the greatest fractionation compared to substrate? Does this match with the results of the Londry et al. 2008 paper (table and figure below)?
+## Question : Which product of M. barkeri has the greatest fractionation compared to substrate? Does this match with the results of the Londry et al. 2008 paper (table and figure below)?
 
 ```{r}
 knitr::include_graphics("Table 3.png")
 knitr::include_graphics("Figure 2.png")
 ```
-
-
-
