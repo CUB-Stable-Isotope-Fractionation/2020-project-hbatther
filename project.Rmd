@@ -18,6 +18,9 @@ editor_options:
 devtools::install_github("KopfLab/isocyclr") # install newest version of isocyclr
 ```
 
+```{r, eval=FALSE}
+install.packages("rlang") # update rlang to version 0.4.8
+```
 
 
 ```{r "load packages", include=FALSE, message=FALSE}
@@ -27,7 +30,7 @@ library(isocyclr)
 
 # Introduction
 
-Stable carbon isotopes are often used as tracers of methane through the global carbon cycle. However, there is insufficient understanding of the different processes that contribute methane to the atmosphere and hydrosphere and of the impact that various biochemical pathways have on the fractionation of the carbon. From Londry et al., 2008, we've learned that substrate type and availability affect the d13C of products M. barkeri produce during methanogenesis. In the paper, four different substrates (H2/CO2, acetate, methanol, and TMA) at different availabilities (limited vs. abundant) were used to understand fractionation affects on the d13C of lipids, biomass, and methane. In this exercise, we are going to create a model to explore the differences in fractionation between biomass, lipids, and methane produced by M. barkeri using the substrate methanol at abundant concentrations (although organic substrates are normally not found in abundance in nature...). 
+Stable carbon isotopes are often used as tracers of methane through the global carbon cycle. However, there is insufficient understanding of the different processes that contribute methane to the atmosphere and hydrosphere and of the impact that various biochemical pathways have on the fractionation of the carbon. From Londry et al., 2008, we've learned that substrate type and availability affect the d13C of products M. barkeri produce during methanogenesis. In the paper, four different substrates (H2/CO2, acetate, methanol, and TMA) at different availabilities (limited vs. abundant) were used to understand fractionation affects on the d13C of lipids, biomass, and methane. In this exercise, we are going to create a steady-state model to explore the differences in fractionation between biomass, lipids, and methane produced by M. barkeri using the substrate methanol at abundant concentrations (although organic substrates are normally not found in abundance in nature...). 
 
 Below, you will find a schematic of the carbon assimilation and dissimilation pathways in methanogens. For this exercise, we are going to be looking specifically at the methanol pathway. 
 
@@ -35,9 +38,8 @@ Below, you will find a schematic of the carbon assimilation and dissimilation pa
 knitr::include_graphics("Schematic.png")
 ```
 
-## Question 1
-The methanol pathway has both anabolic and catabolic components. The anabolic component results in the formation of lipids and bulk biomass and the catabolic component produces methane. Looking at these pathways in the schematic, what factors would impact the isotopic difference between the substrate (methanol) and products (total biomass and methane)?
-### Answer: The relative fluxes of carbon to various products at any branch point, the fractionations imposed by each enzyme, and the reversibility of each of the enzymes are all important factors in determining the isotopic difference between substrate and any particular product.
+### Question: The methanol pathway has both anabolic and catabolic components. The anabolic component results in the formation of lipids and bulk biomass and the catabolic component produces methane. Looking at these pathways in the schematic, what factors would impact the isotopic difference between the substrate (methanol) and products (total biomass and methane)?
+Answer: The relative fluxes of carbon to various products at any branch point, the fractionations imposed by each enzyme, and the reversibility of each of the enzymes are all important factors in determining the isotopic difference between substrate and any particular product.
 
 
 # Methanol Schematic
@@ -48,9 +50,9 @@ We are going to start off by creating a reaction network of carbon based upon th
 knitr::include_graphics("Hayes 2001.png")
 ```
 
-
 ## Creating the schematic and generating a reaction diagram
 
+The code chunk below creates a reaction diagram for our pathway using the amazing custom super exclusive package isocyclr! 
 
 ```{r, fig.width=10}
 methanogen <- isopath() %>%
@@ -121,12 +123,15 @@ methanogen%>%generate_reaction_diagram(add_arrows = TRUE)
 
 ## System of differential equations
 
+get_ode_matrix() allows you to look at the system of differential equations generated for the reaction network.
+
 ```{r}
 methanogen %>% get_ode_matrix() %>% knitr::kable()
 ```
 
 ## Assign parameters
 
+Here are some useful and relevant equations we've learned this semester. Please use them to equate the fractionation factors in the r chunk below.
 $$
 \alpha = \text{fractionation factor} \\
 R = \text{isotope ratio} \\
@@ -134,7 +139,7 @@ R = \text{isotope ratio} \\
 \epsilon = \alpha_{\frac{p/r}} - 1 \\
 $$
 
-Define 
+### Equate and define 
 ```{r}
 
 d13C_MeOH <- -0.0462
@@ -157,6 +162,7 @@ eps_lipid <- alpha_lipid - 1
 
 ```
 
+The variables defined above are now going to be used to assign numeric values to the "symbols" used in the reaction network created earlier.
 
 ```{r}
 params <- tibble(
@@ -166,12 +172,15 @@ params <- tibble(
       # isotopic effects in permil
       eps_CH4 = eps_CH4 * 1000, eps_actCoA = eps_actCoA * 1000, eps_obio = eps_obio * 1000, eps_lipid = eps_lipid * 1000, 
       # starting isotopic composition in permil
-      MeOH.d13C = -46.2, meS.d13C = 0, CO2.d13C = -8, CH4.d13C = 0, actCoA.d13C = 0, lipids.d13C = 0, obio.d13C = 0, #CO2 = compressed gas so atmospheric
+      MeOH.d13C = -46.2, meS.d13C = 0, CO2.d13C = -8, CH4.d13C = 0, actCoA.d13C = 0, lipids.d13C = 0, obio.d13C = 0, #CO2 = compressed gas so atmospheric value
       # pool sizes for variable components
-      meS = 10, CO2 = 10, CH4 = 10, actCoA = 10, lipids = 10, obio = 10
+      meS = 40, CO2 = 10, CH4 = 10, actCoA = 40, lipids = 10, obio = 10
       )
 params
 ```
+
+### Question: Looking  at the schematic and paramaters assigned, which fractionation factor did we not take into account? Where would the incorporation of this factor have an effect?
+Answer: eps_CO2, it would have made the model even more complicated. It would effect acetyl-CoA and obio d13C values.
 
 ## Set paramaters for the iso path
 
@@ -179,7 +188,7 @@ params
 path_methanogen <- methanogen %>% set_parameters(params)
 ```
 
-## Run model
+## Run and play with model (by changing time_steps)
 
 ```{r}
 model <- path_methanogen %>% run_model(time_steps = 500)
@@ -196,6 +205,15 @@ model %>%
   labs(y = expression(delta*13*'C')) +
   facet_grid(~scenario)
 ```
+
+### Question: What impact do pool size and flux have on the system? Change the flux rates and reservoir sizes in params and see what happens.
+Answer: Pool size and flux only matter for residence times. By definition, the residence time is the total amount in the reservoir, divided by the total flux (in or out). Average length of time something will remain in a reservoir. Input increases, residence time decreases, input decreases, residence time increases. Larger reservoirs need more flux to reach steady-state faster.
+
+### Question: In the grand scheme of things, does comparing high flux with low flux really matter? 
+Answer: Nah, the system is gonna reach steady-state eventually.
+
+
+# Model check to make sure everything is correct
 ```{r}
 model %>% 
   pivot_longer(names_to = "reservoir", values_to = "size", cols = c(meS, CH4, lipids, CO2, obio, actCoA)) %>%
@@ -205,13 +223,37 @@ model %>%
   facet_grid(~scenario)
 ```
 
+# Run to steady state
+
+```{r}
+steady <- path_methanogen %>% run_steady_state(stol = 1e-5, rtol = 1e-3)
+```
+
+## Generate steady state reaction diagram
+
+```{r}
+path_methanogen %>% generate_reaction_diagram(
+  steady %>% 
+    pivot_longer(names_to = "component", values_to = "y", ends_with("d13C")) %>% 
+    mutate(component = str_remove(component, ".d13C")) %>% 
+    select(scenario, component, y)
+) + facet_grid(~scenario)
+```
+
+### Question: What difference can you spot between high flux and low flux once steady state is reached?
+Answer: TRICK QUESTION. No difference.
+
+
+## Let's see how changing the branching flux at nodes effects the outcomes...
+
 ```{r}
 steady2 <- path_methanogen %>%
-  set_parameters(scenario = c("loads biomass", "less biomass"),
+  set_parameters(scenario = c("more biomass", "less biomass"),
                  dm = c(1, 1), f_CO2 = c(0.5, 0.8)) %>%
   run_steady_state(stol = 1e-5, rtol = 1e-3)
 ```
-```{r}
+
+```{r, fig.width=10}
 path_methanogen %>% generate_reaction_diagram(
   steady2 %>% 
     pivot_longer(names_to = "component", values_to = "y", ends_with("d13C")) %>% 
@@ -219,4 +261,7 @@ path_methanogen %>% generate_reaction_diagram(
     select(scenario, component, y)
 ) + facet_grid(~scenario)
 ```
+
+### Question: How does the change in biomass yield effect the outcome?
+Answer: Change in biomass yield moves the methane, other biomass, and lipids up, making them isotopically heavier.
 
