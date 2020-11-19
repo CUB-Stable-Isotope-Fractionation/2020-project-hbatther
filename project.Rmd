@@ -13,7 +13,12 @@ editor_options:
   chunk_output_type: inline
 ---
 
----
+
+```{r, eval=FALSE}
+devtools::install_github("KopfLab/isocyclr") # install newest version of isocyclr
+```
+
+
 
 ```{r "load packages", include=FALSE, message=FALSE}
 library(tidyverse)
@@ -52,8 +57,8 @@ methanogen <- isopath() %>%
   add_isotope("d13C") %>%
   # components
   add_component(c("MeOH", "CO2"), d13C, variable = FALSE) %>%
-  add_component(c("CH4", "meS", "actCoA", "lipids", "obio", "biomass"), d13C) %>%
-  add_component(c("CH4Sink", "biomassSink"), d13C, variable = FALSE) %>%
+  add_component(c("CH4", "meS", "actCoA", "lipids", "obio"), d13C) %>%
+  add_component(c("CH4Sink", "obiosink", "lipidsink"), d13C, variable = FALSE) %>%
   # methanol uptake
   add_custom_reaction(
     MeOH == meS, flux = net, flux.d13C = MeOH.d13C, name = "1. methanol uptake"
@@ -83,20 +88,32 @@ methanogen <- isopath() %>%
   # other biomass
   add_custom_reaction(
     actCoA + CO2 == obio, 
-    flux = (1 - f_lipid) * (1 - f_CH4 - f_CO2), 
+    flux = (1 - f_lipid) * (1 - f_CH4 - f_CO2) * net, 
     flux.actCoA.d13C = actCoA.d13C + eps_obio,
     flux.obio.d13C = 2/3 * (meS.d13C + eps_actCoA) + 1/3 * (CO2.d13C + 0),
     name = "5. other biomass generation",
     abscissa = 5
   ) %>%
+  # obio outflux
+  add_custom_reaction(
+    obio == obiosink,
+    flux = (1 - f_lipid) * (1 - f_CH4 - f_CO2) * net, flux.d13C = obio.d13C, name = "obio loss", 
+    abscissa = 3
+  ) %>%
   # lipids
   add_custom_reaction(
     actCoA == lipids,
-    flux = f_lipid  * (1 - f_CH4 - f_CO2), 
+    flux = f_lipid  * (1 - f_CH4 - f_CO2) * net, 
     flux.d13C = actCoA.d13C + eps_lipid,
     name = "6. lipid generation",
     abscissa = 5
-  ) 
+  )  %>%
+  # lipids outflux
+  add_custom_reaction(
+    lipids == lipidsink,
+    flux = f_lipid  * (1 - f_CH4 - f_CO2) * net, flux.d13C = lipids.d13C, name = "lipids loss", 
+    abscissa = 6
+  )
 
 
 methanogen%>%generate_reaction_diagram(add_arrows = TRUE)
@@ -124,7 +141,7 @@ d13C_MeOH <- -0.0462
 d13C_obio <- -0.0773
 d13C_CH4 <- -0.1296
 d13C_lipid <- -0.0897
-d13C_actCoA <- -0.1 #random value
+d13C_actCoA <- -0.1 # random value
 
 alpha_CH4 <- (d13C_CH4 + 1) / (d13C_MeOH + 1)  
 eps_CH4 <-  alpha_CH4 - 1
@@ -138,8 +155,6 @@ eps_obio <- alpha_obio - 1
 alpha_lipid <- (d13C_lipid + 1) / (d13C_actCoA + 1) 
 eps_lipid <- alpha_lipid - 1
 
-
-
 ```
 
 
@@ -151,7 +166,7 @@ params <- tibble(
       # isotopic effects in permil
       eps_CH4 = eps_CH4 * 1000, eps_actCoA = eps_actCoA * 1000, eps_obio = eps_obio * 1000, eps_lipid = eps_lipid * 1000, 
       # starting isotopic composition in permil
-      MeOH.d13C = -46.2, meS.d13C = 0, CO2.d13C = -8, CH4.d13C = 0, actCoA.d13C = 0, lipids.d13C = 0, obio.d13C = 0, #CO2 = compressed gas
+      MeOH.d13C = -46.2, meS.d13C = 0, CO2.d13C = -8, CH4.d13C = 0, actCoA.d13C = 0, lipids.d13C = 0, obio.d13C = 0, #CO2 = compressed gas so atmospheric
       # pool sizes for variable components
       meS = 10, CO2 = 10, CH4 = 10, actCoA = 10, lipids = 10, obio = 10
       )
@@ -167,12 +182,7 @@ path_methanogen <- methanogen %>% set_parameters(params)
 ## Run model
 
 ```{r}
-model <- path_methanogen %>% run_model(time_steps = 2)
-```
-
-
-```{r}
-
+model <- path_methanogen %>% run_model(time_steps = 500)
 ```
 
 
@@ -186,11 +196,27 @@ model %>%
   labs(y = expression(delta*13*'C')) +
   facet_grid(~scenario)
 ```
-
-
-## Question : Which product of M. barkeri has the greatest fractionation compared to substrate? Does this match with the results of the Londry et al. 2008 paper (table and figure below)?
+```{r}
+model %>% 
+  pivot_longer(names_to = "reservoir", values_to = "size", cols = c(meS, CH4, lipids, CO2, obio, actCoA)) %>%
+  ggplot() + aes(time, size, color = reservoir) +
+  geom_line() + theme_bw() +
+  labs(y = "reservoir size") +
+  facet_grid(~scenario)
+```
 
 ```{r}
-knitr::include_graphics("Table 3.png")
-knitr::include_graphics("Figure 2.png")
+steady2 <- path_methanogen %>%
+  set_parameters(scenario = c("loads biomass", "less biomass"),
+                 dm = c(1, 1), f_CO2 = c(0.5, 0.8)) %>%
+  run_steady_state(stol = 1e-5, rtol = 1e-3)
 ```
+```{r}
+path_methanogen %>% generate_reaction_diagram(
+  steady2 %>% 
+    pivot_longer(names_to = "component", values_to = "y", ends_with("d13C")) %>% 
+    mutate(component = str_remove(component, ".d13C")) %>% 
+    select(scenario, component, y)
+) + facet_grid(~scenario)
+```
+
