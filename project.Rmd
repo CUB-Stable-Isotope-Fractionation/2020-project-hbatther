@@ -135,7 +135,7 @@ Here are some useful and relevant equations we've learned this semester. Please 
 $$
 \alpha = \text{fractionation factor} \\
 R = \text{isotope ratio} \\
-\alpha_{\frac{p/r}} = \frac{R_p}{R_r} = \frac{\delta^{13}C_p + 1}{\delta^{13}C_r + 1} \\
+\alpha_{\frac{p}{r}} = \frac{R_p}{R_r} = \frac{\delta^{13}C_p + 1}{\delta^{13}C_r + 1} \\
 \epsilon = \alpha_{\frac{p/r}} - 1 \\
 $$
 
