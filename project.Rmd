@@ -263,5 +263,5 @@ path_methanogen %>% generate_reaction_diagram(
 ```
 
 ### Question: How does the change in biomass yield effect the outcome?
-Answer: Change in biomass yield moves the methane, other biomass, and lipids up, making them isotopically heavier.
+Answer: Change in biomass yield moves the methane, other biomass, and lipids up, making them isotopically heavier. So changing the overall flux rate of the system doesn't impact fractionation of intermediates or products. However, changing the branching flux at specific nodes impacts the fractionation of the compounds that are connected to that node.
 
